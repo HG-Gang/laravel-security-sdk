@@ -1,0 +1,351 @@
+1. 全量仔细检查当前项目每一个文件及文件设计文档
+2. 查漏补缺当前项目每一个模块每一个文件每一个逻辑细节是否 完整百分比实现逻辑闭环，无误
+
+2026-08-21 全量审计与方案 A 修复：
+- 修复 PSR-4/composer 依赖/16 个缺失符号/ServiceProvider/中间件/HttpClient 断链；
+- 按 v0.0.2 设计实现 Signature 模块、信封 v1 AES-GCM、JWT kid 白名单、fail-closed 存储语义；
+- 新增 tests/（59 tests / 223 assertions 通过）与验收报告；历史测试报告已标注失实。
+
+
+2026-08-21 七项缺口补齐 + 注释标准化：
+- 补齐 defaults 合并/轮换状态机/check-config 命令/Log 审计/hmac_bearer_sha256/Audit 模块/tenant-act；
+- 全部 78 个源文件方法级注释达标（功能/使用范围/适用场景/函数逻辑/@param 含示例/@return/@throws）；
+- config/tozo_security.php 全参数逐行详注；测试增至 74 tests / 252 assertions 全绿。
+
+2026-08-24
+==================
+1. 我当前写的SDK逻辑的可行性性多大的概率，因为我不清楚当前SDK是否是比较合理和可行的
+2. 全量 全量仔细检查当前项目每一个文件及文件设计文档
+3. 查漏补缺当前项目每一个模块每一个文件每一个逻辑细节是否 完整百分比实现逻辑闭环，无误
+4. 全量更新或重新写当前项目所有文件注释逻辑，参考文件：中文注释标准-v0.0.2.md
+5. 检查验证完成后，如果当前项目逻辑合理且可行且所有模块逻辑全部无误，那么必须给出一份详细的 各模块使用说明书
+6. ?Profile $profile = null 方法参数不允许这种 问号类型写法。
+7. : Payload 所有方法 都不想有这种写法，使用传统点写法即可
+
+======================
+
+2026-08-27 v0.0.4 全量审查与闭环修复：
+
+发现并修复 16 项缺陷（每项先用可执行探针确认可触发，再修复，再用测试固化）：
+
+P0（破坏合法流量或链路开环）：
+- query 规范化入站/出站不一致：调用端按最终 URL 原始字节签名，服务端却从
+  $request->query->all() 重建，导致带重复键（?a=1&a=2）或方括号键
+  （?filter[status]=open）的合法请求被判为 invalid_signature。
+  修复：确立“线上原始 query 字符串为唯一事实来源”，新增
+  CanonicalRequest::canonicalQueryString()，入站/出站中间件与 HttpClient 全部改用原始字节。
+- 嵌套 query 键折叠导致签名原文碰撞：filter[status]=a&filter[type]=open 与
+  filter[status]=open&filter[type]=a 旧实现折叠为同一原文，签名不再唯一绑定 query。
+- 响应完整性链路开环：仅有验证侧，全仓库无任何生成响应保护的代码路径。
+  调用端声明 response_integrity.required=true 后被调用方无法产出对应保护。
+  修复：接口新增 protectEncryptedResponse/protectSignedResponse/getSignatureHeaderName，
+  实现生成侧（签名原文抽取为单一来源），新增 ResponseIntegrityMiddleware。
+
+P1（接口契约与可用性）：
+- Facade 访问器 'tozo_security' 从未绑定，TozoSecurity::get()/post() 抛
+  BindingResolutionException；修复为在 features.http_client=true 时别名到 HttpClient。
+- TozoHttpClient 必需参数 $auditSink 位于三个 = null 参数之后，PHP 把前三个隐式
+  当作必需（实测 getNumberOfRequiredParameters()=4）；修复为 $auditSink 前置。
+- config/tozo_security.php 带 UTF-8 BOM，在真实 Laravel 中会产生提前输出破坏 header()。
+
+P2（健壮性与一致性）10 项：
+- 加密开启但 cipher 绑定缺失时落入 unexpected 兜底分支 → 显式配置异常与稳定原因码；
+- 未配置方向的空 key_id 信封可命中白名单比对 → 先拒绝 + hash_equals；
+- HmacBearer 未校验时间戳为数字 → 显式 is_numeric；
+- normalizePath 不解析 . / .. 点段 → 按 RFC 3986 §5.2.4 解析；
+- normalizePath('//a//b') 被 parse_url 当作主机名丢失首段 → 仅绝对 URL 走 parse_url；
+- JwtTokenVerifier 5 处孤立重复 PHPDoc + 全文 Tab 缩进 → 重写为 4 空格；
+- verify() 信任 Token 自带 subject_type → 统一以 sub 前缀为准；
+- decode() 未防御非对象 payload → 归一为空数组；
+- Profile.php 未使用的 CanonicalRequest 导入 → 移除；
+- JwtTokenIssuer::issue() 的 $extraClaims 缺 @param → 补齐。
+
+更正 v0.0.3 报告两处过宽结论：query 修复只做了出站侧；Response Integrity 并非“逻辑完整”。
+
+验证：189 tests / 454 assertions 全通过；104 文件 php -l 全通过；0 BOM；0 未使用导入；
+308 个方法注释合规（PHPDoc/@param/@return 均无缺失）；0 孤立注释块；composer.json valid。
+负向对照：把入站 query 改回修复前写法，QueryInteropTest 立即出现 3 项 invalid_signature 失败。
+
+新增测试：ProtocolCanonicalizationTest、ResponseIntegrityClosureTest、
+DefectRegressionTest、Integration/QueryInteropTest。
+
+新增文档：各模块使用说明书 v0.0.4、全量审查与可行性报告 v0.0.4。
+
+风格约定（需求 6、7）经 ApiStyleTest 确认持续满足：无返回类型声明、无 ?Type 参数写法。
+
+======================
+
+2026-08-27 v0.0.5 发布准备：PHP 7.4 兼容性落地 + 协议向量冻结
+
+需求：
+1. 完整实现所有模块逻辑正确性，为后续发布 SDK 做严格代码逻辑闭环准备，
+   方便其他项目 composer 下载后百分百正确使用；
+   本机 PHP 为 8.0，但项目代码必须以最低 PHP 7.4 语法兼容编写。
+2. 按给定建议继续实现和优化现有代码逻辑。
+3. 全量更新或重新写注释逻辑，参考 中文注释标准-v0.0.2.md。
+5. 检查验证完成后给出详细的各模块使用说明书。
+
+修复 5 项（每项先用可执行探针确认可触发，再修复，再用测试固化）：
+
+R-1 依赖锁定与声明的 PHP 版本矛盾（发布阻断级）：
+  composer.json 声明 php >=7.4，但 vendor/composer/platform_check.php 生成为
+  PHP_VERSION_ID >= 80002；PHP 7.4 宿主 composer require 后直接 fatal 无法启动。
+  根因：依赖在 8.0.2 开发机上解析，选出 firebase/php-jwt v6.11.1（需 php ^8.0）
+  与 symfony/* v6.0.x（需 php >=8.0.2）；require.php 只约束下游，不约束本地解析。
+  修复：新增 config.platform.php = "7.4.0" 锁定解析目标并重新解析：
+    firebase/php-jwt v6.11.1 -> v6.10.0（支持 ^7.4）
+    symfony/string v6.0.19  -> v5.4.47
+    platform_check 门槛 >= 80002 -> >= 70400
+  验证：PHP 7.4.3 实跑 lint（107 文件 0 失败）+ 全量测试（219 tests 全通过）。
+
+R-2 PHP 7.4 兼容性缺少持续守卫：
+  新增 Php74CompatibilityTest，对全量源码静态扫描十类 8.0+ 构造
+  （新增字符串/类型函数、match、?->、构造器属性提升、mixed/static 类型声明、
+   Attributes、非捕获 catch、throw 表达式），并断言 platform 锁定与 vendor 门槛。
+  扫描前用 token_get_all 剥离注释与字符串（保留偏移定位行号），避免注释误判。
+  负向对照：注入 str_contains() + ?-> 后测试以精确行号失败，移除后恢复。
+
+R-3 Protocol v1 缺少冻结的一致性基准：
+  v0.0.4 刚重写 query 与 path 规范化；若不冻结向量，第二语言实现会重踩同类坑。
+  新增 protocol/test-vectors-v1.json（10 组 70 条）、protocol/README.md、
+  ProtocolVectorTest（11 用例 / 115 断言，只读消费）。
+  独立复核：用不调用 SDK 任何类的手工脚本重算全部 signature 与
+  response_signature 向量，base64url 抽样对照 RFC 4648 已知值（abc -> YWJj），
+  TTL 公式逐条验算，全部通过——向量不是"实现自证实现"。
+
+R-4 依赖 CVE 明确处置：
+  firebase/php-jwt < 7.0.0 存在 CVE-2025-45769（低危 weak encryption），
+  修复版本 7.x 要求 php ^8.0，与 PHP >=7.4 基线冲突，故锁定 6.10.0。
+  以可执行证据说明本 SDK 用法不受该攻击面影响：算法由 Profile driver 固定、
+  从不读取 Header alg、密钥以 Key(材料,算法) 传入、底层 JWT.php:141 以
+  constantTimeEquals 校验 alg 一致性、alg=none 被两道检查拦截。
+  新增 TokenAlgorithmConfusionTest 固化 7 用例：alg=none、RSA 公钥当 HMAC 密钥的
+  HS256 混淆、不支持算法、未知 kid、缺失 kid、RS256 交给 HS256 Profile，
+  以及正向对照（匹配时必须通过）。
+  说明书 §18 给出宿主可接受 PHP >=8.0 时的替代方案，版本策略交回项目方。
+
+R-5 发布与验证工程化：
+  新增 composer run verify（lint + 规范自查 + 测试，返回码可用于 CI）；
+  临时检查脚本固化为 tools/lint.php 与 tools/audit.php；
+  新增 .gitattributes：export-ignore 排除 tests/docs/IDE 配置缩小分发体积，
+  强制 LF 行尾（签名原文含 \n，CRLF 会导致跨平台签名不一致）；
+  protocol/ 不排除——它是跨语言协议事实来源，必须随包分发。
+
+验证（双 PHP 版本）：
+  PHP 7.4.3  lint 107 文件 0 失败 ｜ audit 全部通过 ｜ 219 tests, 592 assertions
+  PHP 8.0.2  lint 107 文件 0 失败 ｜ audit 全部通过 ｜ 219 tests, 592 assertions
+  规范自查：src 308 个具名方法，PHPDoc/@param/@return 均无缺失；
+            0 BOM、0 Tab 缩进、0 孤立注释块、0 未使用 use 导入
+  composer validate 通过；platform_check 门槛 70400
+
+新增文档：各模块使用说明书 v0.0.5（20 章）、全量审查与可行性报告 v0.0.5、
+          protocol/README.md（协议字节级规则与变更纪律）。
+
+累计缺陷修复：v0.0.4 十六项 + v0.0.5 五项 = 21 项。
+
+准备度评估更新：架构可行性 90%~93%；本地验证可信度 93%~96%；
+生产准备度 78%~85%。未闭环项（本机无法验证）：完整 Laravel 8.5 应用集成、
+Redis 多实例原子性、真实 HTTPS 传输、跨语言双向互通。
+
+======================
+
+2026-08-27 v0.0.6 按建议执行：跨语言一致性 + CI 落地
+
+需求：按 v0.0.5 报告给定的准入建议执行。
+
+完成 v0.0.5 §6 建议中本机可执行的两项（第 4、5 项）：
+
+一、跨语言协议一致性（原建议一种语言，实际做了两种）
+
+  新增 Python 3.9.13 与 Go 1.25.7 两份独立实现，均从零按 protocol/README.md
+  的文字规则编写、不移植 PHP 源码、仅依赖标准库。
+  刻意避开各语言便利函数（Python parse_qs 会折叠重复键、quote 默认保留 /；
+  Go url.ParseQuery 返回无序 map、QueryEscape 把空格编码为 +、map 遍历随机），
+  否则通过只能证明"复制正确"而非"规范完备"。
+
+  结果：PHP 115 断言、Python 92 比对项、Go 92 比对项，全部逐字节一致。
+
+  发现并修复 1 项规范缺陷（只有跨语言验证才能暴露）：
+    canonical_query_array[].input 的空值原写作 []。
+    PHP json_decode('[]', true) 得空数组，与空映射同型，PHP 侧 11 用例全绿；
+    但 Python 读到 list（.items() 抛 AttributeError）、Go 按 JSON 数组解析。
+    根因：PHP 数组不区分列表与映射，该语义泄漏进了协议制品。
+    修复：生成器强制 (object) 转换，空 query 序列化为 {}。
+    说明 v0.0.5 把"向量已冻结"当作跨语言就绪的判断是过早的。
+
+  建立两道独立防线：
+    1. vectors-check 拦截"实现悄悄改变协议行为"
+    2. Python/Go 独立实现拦截"改实现同时改向量以掩盖"
+  负向对照实测：把 canonicalQueryString 的 sort 改为 rsort 后 vectors-check
+  FAIL；再执行 gen_vectors 覆盖向量掩盖改动，Python 一致性仍 FAIL 并逐条
+  打印 expected/actual。恢复后两者均通过。第二道防线是单靠向量文件无法提供的。
+
+二、CI 矩阵
+
+  .github/workflows/ci.yml，三个独立作业：
+    php      —— PHP 7.4/8.0/8.1/8.2 矩阵 + 7.4 最低依赖组合（共 5 个组合）
+                fail-fast:false（需同时看到所有版本结果）
+                error_reporting=E_ALL（暴露 deprecation）
+                独立步骤断言 platform_check 门槛 <= 70400，防 v0.0.5 R-1 复发
+                --prefer-lowest 单列而非合并，避免上限问题被下限成功掩盖
+    protocol —— 向量漂移检查 + Python 一致性 + Go gofmt/vet/一致性
+                刻意不依赖 PHP 测试结果：跨语言一致性不能由被验证方自证
+    package  —— git archive 内容检查（protocol 向量必须在、tests/docs 必须不在）
+                --no-dev 安装后 8 个核心类可解析，防新增文件漏配 autoload
+
+  CI 逻辑全部固化为本地可执行脚本，避免"只有 CI 能跑"：
+    composer run verify       = lint + audit-style + test + vectors-check
+    composer run conformance  = PHP + Python + Go 三语言一致性
+
+三、分发包裁剪
+
+  .gitattributes export-ignore：
+    保留 protocol/test-vectors-v1.json 与 protocol/README.md（其他语言 SDK 需消费）
+    排除 protocol/conformance/、tools/、tests/、docs/、.github/、.idea/、.claude/
+  强制 eol=lf：签名规范化串以 \n 连接，CRLF 检出会导致签名原文字节不一致，
+  这是正确性要求而非格式偏好。
+
+新增产物：
+  protocol/conformance/README.md（含不一致时的处置流程与已发现缺陷记录）
+  protocol/conformance/python/{tozo_protocol.py,conformance_test.py}
+  protocol/conformance/go/{tozo_protocol.go,conformance_test_main.go,go.mod}
+  .github/workflows/ci.yml
+  tools/gen_vectors.php（支持 --check 漂移检查）
+  tools/conformance.php（三语言统一入口，缺运行时标 SKIP 不伪装通过）
+
+验证：
+  PHP 7.4.3  lint 107 文件 0 失败 ｜ audit 通过 ｜ 219 tests, 592 assertions
+  PHP 8.0.2  同上 ｜ vectors-check 一致
+  Python 3.9.13  92 比对项 0 不一致
+  Go 1.25.7      92 比对项 0 不一致；gofmt 无需格式化；go vet 无告警
+  composer validate 通过；CI YAML 解析 3 作业（9/9/4 步）
+  export-ignore 规则 7 项逐项验证通过
+
+新增文档：跨语言一致性与 CI 落地报告 v0.0.6。
+
+准备度更新：架构可行性 92%~95%；本地验证可信度 95%~97%；生产准备度 82%~88%。
+
+剩余 7 项准入建议全部为环境与流程问题而非代码问题，本机均无法执行：
+完整 Laravel 8.5 应用集成、Redis 多实例并发、Guzzle 真实 HTTPS、
+生产密钥轮换演练、逐路由风险标注、日志脱敏抽查、高并发压测。
+代码与协议侧在当前覆盖范围内无已知缺陷。
+
+
+============================
+1. 当前我有内部系统四个，我想把当前SDK分别在这四个系统内全部 composer 安装好
+2.  系统1: tozoApp-api       测试php版本8.1.3,  生产php版本7.4.3  测试接口域名：https://app-api.example.test, 生产接口域名: https://app-api.example.com
+2.1 系统2: app-admin-api     测试php版本8.1.3,  生产php版本7.4.3  测试接口域名：https://app-admin-api.example.test, 生产接口域名: https://app-admin-api.example.com
+2.3 系统3: pmc-api           测试php版本8.1.3,  生产php版本7.4.3  测试接口域名：https://pmc-api.example.test, 生产接口域名: https://api-pms.example.com
+2.4 系统4: pos-api           测试php版本8.1.3,  生产php版本7.4.3  测试接口域名：https://pos-api.example.test, 生产接口域名: https://pos-api.example.com
+3. 我要求的是这四个系统 分别能两两互相进行内部调用获取请求数据
+4. 分别给出这四个系统需要配置哪些参数，及需要更改哪些文件，给出完整且详细的操作md 文档说明及每一个文件每一个参数的样例值
+
+==================================
+1. 四系统文档 ，我实际是想要的是实际的真实配置文件和相关环境文件.env 中的参数和值  的这样的文件例子，而非文档中一个参考例子， 这些真实实际的文件存放在 docs 目录下新增文件内。并增加readme 相关文件
+2. 并且这些真实的实际文件，而我仅需更改下key值即可在真实项目应用的那种
+3. 还需要把这些文件的每一个参数名和参数值进行详细的注释，参考中文注释文件的规则：中文注释标准-v0.0.3.md
+
+=========================
+1. 当前SDK的配置参数属性太多，使用起来非常耗时并且非常不利于其他人使用
+2. 当前配置不再读取环境文件.env ，所有配置信息都必须写在 tozo_security.php 这个文件，tozo_services.php 这个不再需要，同时这个文件内的数据参数配置全部写入tozo_security.php 文件
+3. 我期望其他人在使用改SDK时能快速上手使用，而非需要配置一大堆各种各样的参数配置，这让学习时间成本大大增大，且不利于团队使用
+4. 给出全新的配置，且上手快的全新使用该SDK的方案
+5. 四系统两两调用，我个人认为应该各项协议，加解密方式，及其他模块的功能应该是一样的，不需要再额外重新配置，这样应该可以减少配置文件的配置参数了吧
+6. 详细阅读 目录 [四系统实际配置文件-v0.0.8]下 四系统现有的配置逻辑，先给出全新的配置方案，再定夺
+============
+1. 先读取当前根目录文件CLAUDE.md,文件，理解后，再开始一个个未实现完成的逻辑
+刚才中断了 从中断的位置 继续未完成的逻辑，要求每一步都必须仔细审阅和理解需求后才开始实现代码逻辑
+本轮完成后，还有一个核 心 注释检查 遵循文件 中文注释标准-v0.0.3.md 规则，本SDK 所有文件 必须要 非常 极其详细的中文注释说明。
+
+----------------------------------------
+配置精简实施结论（2026-08-30，v0.0.9）
+----------------------------------------
+
+采用方案：A2（受控目录存密钥）+ B2（声明对端，Profile 自动推导）。
+方案空间、否决理由与 14 条硬约束见 docs/Tozo-Security-SDK-配置精简方案-v0.0.9.md。
+
+逐条对应上述 6 项需求：
+
+需求 1（参数太多）→ 单套配置 548 行 / 224 键降到约 25 行 / 3 键。
+需求 2（不读 .env、删 tozo_services.php）→ 两项均已完成。配置文件内零 env() 调用，
+    由 FreshInstallTest 断言不得出现 env( 与 TOZO_SECURITY_ 字样；tozo_services.php
+    的 11 个键去向：base_urls 并入 peers，environment 合并为单一事实来源，
+    tls/http 四项下沉为 ConfigNormalizer 内置常量。
+需求 3（快速上手）→ 需理解的概念从「Profile 方向语义 / 模式矩阵 / 三层合并 /
+    features 双门控 / 7 类密钥用途」降到「我是谁 / 什么环境 / 跟谁通信」。
+    接入步数从约 38 步降到 6 步。
+需求 4（全新方案）→ 新增极简配置形态与 tozo:security:install 命令，
+    出站调用改为 app('tozo.http')->to('对端标识')。
+需求 5（四系统协议应当一致）→ 成立。实测 48 个 Profile 中 19 个字段取值 48/48 完全相同，
+    已固化为 ConfigNormalizer 内置常量；真变量只有 direction、client_id、
+    target_service 与两个 key_id 共 5 项。
+需求 6（先读 v0.0.8 再定夺）→ 已读全部 8 套配置，方案文档先行落盘后再实施。
+
+代码改动：
+  新增 src/Tozo/Security/Support/ConfigNormalizer.php          极简形态展开器
+  新增 src/Tozo/Security/Laravel/Command/SecurityInstallCommand.php  密钥安装命令
+  新增 tools/gen_examples.php                                  示例包生成器
+  改写 config/tozo_security.php                                422 行 → 3 键
+  改动 src/Tozo/Security/ServiceProvider.php                   register 早期接入展开器；
+                                                              装配按对端选路表；注册 install 命令
+  改动 src/Tozo/Security/Http/TozoHttpClient.php               新增 to()/setRoutes()/resolveUrl()
+  改动 src/Tozo/Security/Contracts/HttpClientInterface.php     新增 to() 契约
+  改动 src/Tozo/Security/Facade.php                            新增 to() 方法注解
+  改动 src/Tozo/Security/Key/FileKeyProvider.php               目录校验从构造期移到检索期
+
+期间修复的三个真实缺陷：
+  1. FileKeyProvider 启动死锁。构造期 realpath 校验目录，而密钥目录由 install 命令创建，
+     全新安装时 artisan 因目录缺失起不来，那条创建目录的命令永远跑不了。
+     改为检索期抛 KeyNotFoundException，使 check-config --runtime 能列出完整错误清单。
+  2. 穿越防护前缀比较的路径形态不一致。惰性化后 keyDir 不再是 realpath 结果，
+     与 realpath 后的文件路径比较必然失配，合法密钥被误判为穿越攻击。
+     改为检索期对两侧同时做 realpath 规范化。
+  3. v0.0.8 示例控制器存在重复数组键（'health' => 'ok' 重复 33 次，后者静默覆盖前者）、
+     return 之后的不可达代码、末尾 return 引用未定义变量。v0.0.9 已重写；
+     v0.0.8 按要求原样保留作回退参照，仅保留语法有效性校验。
+
+测试改动：
+  新增 tests/Unit/ConfigNormalizerTest.php          17 用例，锁死 12 条关系两端推导对称性
+  新增 tests/Unit/SecurityInstallCommandTest.php    13 用例，锁死「绝不覆盖既有密钥」
+  改写 tests/Unit/FourSystemConfigurationTest.php   按展开结果校验，删除 .env 相关断言
+  调整 FreshInstallTest / ServiceProviderTest / PayloadSizeGuardTest / MemberCommentCoverageTest
+
+示例包与文档：
+  新增 docs/四系统实际配置文件-v0.0.9/            45 个文件，每套 4 个，由生成器产出并校验
+  新增 docs/Tozo-Security-SDK-四系统Composer安装与两两互调操作指南-v0.0.9.md
+  新增 docs/Tozo-Security-SDK-各模块使用说明书-v0.0.9.md
+  改写 README.md 快速开始
+  v0.0.7 / v0.0.8 / v0.0.5 全部保留作回退参照
+
+验证结论：composer verify 七项全过 —— lint 126 文件 0 失败、audit-style 8 项通过、
+audit-members 169 个成员与 3 个配置键均有中文注释、headers-check 130/130、
+319 tests / 1561 assertions 全通过、冻结向量一致、示例包与生成规则一致。
+
+兼容性：Protocol v1 未改动，签名规范化串、AEAD AAD、响应签名原文的字段与顺序完全不变。
+展开器只在检测到极简形态（非空 service 且 peers 为数组）时介入，旧完整配置形态继续可用，
+已有部署无需立即迁移。key_id 命名规则变化的灰度方式见说明书 §19.2。
+
+注释深度全量补全（同批完成）：
+  新增 tools/audit_comment_depth.php  按标准 v0.0.3 §5.1 校验注释的实质内容
+  注册 composer audit-depth 并纳入 verify（verify 由七项增为八项）
+
+为什么需要独立于 audit-members：后者的判定是「注释块含中日韩表意文字」，
+`@var string 状态码。` 即可通过；但标准 5.1 明确写出这类只写类型的注释不合格。
+新工具剥掉 @var/@param/@return 等标注后统计实质中文说明字数（下限 20 字），
+并校验方法级 PHPDoc 含「使用范围/适用场景/函数逻辑」三段
+（tests 目录豁免方法级三段——标准 §9 测试名优先表达行为；成员级不豁免，标准 §5.6）。
+
+首次运行报出 93 处成员说明过浅、6 处方法缺段，已全部补全，当前 127 个文件零未达标。
+补写内容按每个成员的实际语义撰写而非凑字数，例如：
+  JwtTokenVerifier::ALGORITHMS   写明算法混淆攻击的具体利用路径
+  JwtTokenVerifier::$revocations 写明存储不可用时 fail-closed 而非放行
+  Profile::$replayStore          写明后端必须多实例共享，否则防重放静默失效
+  TozoHttpClient::$profile       写明它是唯一可变状态与容器用 bind 而非 singleton 的原因
+
+工具局限（须知悉，不可当作注释质量的充分证明）：它只能度量说明的长度，
+无法判断说明是否真的回答了「为什么是这个值、违反会怎样」。
+字数达标不等于内容达标，人工审阅仍不可省略；本工具是下限门禁而非上限保证。
+
+最终验证：composer verify 八项全过 —— lint 127 文件 0 失败、audit-style 8 项通过、
+audit-members 零缺失、audit-depth 零未达标、headers-check 131/131、
+319 tests / 1561 assertions 全通过、冻结向量一致、示例包与生成规则一致。

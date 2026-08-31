@@ -1,0 +1,14 @@
+/vendor/
+/composer.lock
+/.idea/
+/.phpunit.result.cache
+/phpunit.xml
+/debug_*.php
+
+# 本机工具状态：含绝对路径与个人授权项，不属于仓库内容。
+/.claude/
+
+# 任何真实密钥都不得入库。tozo:security:install 生成的密钥在宿主项目的
+# storage/app/tozo/keys/ 下，此处兜底防止误拷进本仓库。
+*.key
+

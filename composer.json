@@ -1,0 +1,104 @@
+{
+    "name": "tozo/security-sdk",
+    "description": "Tozo 统一身份认证与安全通信 SDK",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Tozo Team",
+            "email": "security@tozo.com"
+        }
+    ],
+    "require": {
+        "php": ">=7.4",
+        "ext-json": "*",
+        "ext-openssl": "*",
+        "firebase/php-jwt": "^6.0",
+        "illuminate/console": "^8.83",
+        "illuminate/contracts": "^8.5",
+        "illuminate/support": "^8.5",
+        "phpoption/phpoption": "^1.9",
+        "psr/log": "^1.1",
+        "vlucas/phpdotenv": "^5.6"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.6",
+        "illuminate/cache": "^8.5",
+        "illuminate/config": "^8.5",
+        "illuminate/container": "^8.5",
+        "illuminate/http": "^8.5"
+    },
+    "suggest": {
+        "guzzlehttp/guzzle": "^7.0 使用内置 PendingRequest 传输时需要；测试与自定义传输不需要"
+    },
+    "autoload": {
+        "psr-4": {
+            "Tozo\\Security\\": "src/Tozo/Security/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tozo\\Security\\Tests\\": "tests/"
+        },
+        "files": [
+            "tests/bootstrap_helpers.php"
+        ]
+    },
+    "config": {
+        "sort-packages": true,
+        "platform": {
+            "php": "7.4.0"
+        }
+    },
+    "scripts": {
+        "test": "phpunit --no-coverage",
+        "lint": "@php tools/lint.php",
+        "audit-style": "@php tools/audit.php",
+        "audit-members": "@php tools/audit_members.php",
+        "audit-depth": "@php tools/audit_comment_depth.php",
+        "headers": "@php tools/add_file_headers.php",
+        "headers-check": "@php tools/add_file_headers.php --check",
+        "conformance": "@php tools/conformance.php",
+        "vectors": "@php tools/gen_vectors.php",
+        "vectors-check": "@php tools/gen_vectors.php --check",
+        "examples": "@php tools/gen_examples.php",
+        "examples-check": "@php tools/gen_examples.php --check",
+        "verify": [
+            "@lint",
+            "@audit-style",
+            "@audit-members",
+            "@audit-depth",
+            "@headers-check",
+            "@test",
+            "@vectors-check",
+            "@examples-check"
+        ]
+    },
+    "scripts-descriptions": {
+        "test": "运行全量单元与集成测试",
+        "lint": "对 src/tests/config/tools 全量执行 php -l 语法检查",
+        "audit-style": "校验方法注释完整性、BOM、Tab 缩进、孤立注释块与未使用导入",
+        "audit-members": "校验每个类属性/常量与每个配置键都有中文注释",
+        "audit-depth": "校验中文注释深度：剥掉标注后的实质说明字数与方法三段说明（标准 v0.0.3 §5.1）",
+        "headers": "为缺失文件插入 PhpStorm 头部标识块（幂等）",
+        "headers-check": "校验每个文件都有 PhpStorm 头部标识块",
+        "conformance": "PHP + Python + Go 三语言消费冻结协议向量，验证语言无关性",
+        "vectors": "重新生成 Protocol v1 测试向量（破坏性变更须升协议版本）",
+        "vectors-check": "校验冻结向量未被实现悄悄改写",
+        "examples": "重新生成 docs/四系统实际配置文件-v0.0.9 示例包（45 个文件）",
+        "examples-check": "校验示例包与生成规则一致，未被手工改动带偏",
+        "verify": "lint + audit-style + audit-members + audit-depth + headers-check + test + vectors-check + examples-check，发布前完整验证集"
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Tozo\\Security\\ServiceProvider"
+            ],
+            "aliases": {
+                "TozoSecurity": "Tozo\\Security\\Facade"
+            }
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

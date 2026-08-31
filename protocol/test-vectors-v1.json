@@ -1,0 +1,463 @@
+{
+    "_meta": {
+        "protocol_version": "1",
+        "description": "Tozo Security Protocol v1 固定测试向量；跨语言实现必须逐字节复现。",
+        "hmac_key_ascii": "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+        "notes": [
+            "hmac_key_ascii 是公开示例密钥，仅用于测试向量，禁止用于任何真实环境。",
+            "signature 为 base64url(hmac_sha256(canonical, hmac_key_ascii))，无 padding。",
+            "canonical 字段以 \\n 连接 11 项，顺序固定不可调整。",
+            "canonical_query_array[].input 恒为 JSON 对象；空 query 表示为 {}，不使用 [] —— 空列表与空映射在多数语言中是不同类型。"
+        ]
+    },
+    "normalize_path": [
+        {
+            "input": "",
+            "expected": "/"
+        },
+        {
+            "input": "/",
+            "expected": "/"
+        },
+        {
+            "input": "/api/orders",
+            "expected": "/api/orders"
+        },
+        {
+            "input": "/api/orders/",
+            "expected": "/api/orders"
+        },
+        {
+            "input": "//a//b//",
+            "expected": "/a/b"
+        },
+        {
+            "input": "/api/../admin",
+            "expected": "/admin"
+        },
+        {
+            "input": "/a/./b",
+            "expected": "/a/b"
+        },
+        {
+            "input": "/../../etc",
+            "expected": "/etc"
+        },
+        {
+            "input": "/api/x/..",
+            "expected": "/api"
+        },
+        {
+            "input": "https://host/api/x?y=1",
+            "expected": "/api/x"
+        },
+        {
+            "input": "/api/x?y=1",
+            "expected": "/api/x"
+        },
+        {
+            "input": "/api/x#f",
+            "expected": "/api/x"
+        },
+        {
+            "input": "/A/B",
+            "expected": "/A/B"
+        },
+        {
+            "input": "/%E4%B8%AD%E6%96%87",
+            "expected": "/%E4%B8%AD%E6%96%87"
+        }
+    ],
+    "canonical_query_string": [
+        {
+            "input": "",
+            "expected": ""
+        },
+        {
+            "input": "a=1",
+            "expected": "a=1"
+        },
+        {
+            "input": "b=2&a=1",
+            "expected": "a=1&b=2"
+        },
+        {
+            "input": "a=1&a=2",
+            "expected": "a=1&a=2"
+        },
+        {
+            "input": "tags=y&tags=x&page=2",
+            "expected": "page=2&tags=x&tags=y"
+        },
+        {
+            "input": "filter%5Bstatus%5D=open",
+            "expected": "filter%5Bstatus%5D=open"
+        },
+        {
+            "input": "filter%5Bstatus%5D=open&filter%5Btype%5D=a",
+            "expected": "filter%5Bstatus%5D=open&filter%5Btype%5D=a"
+        },
+        {
+            "input": "filter%5Bstatus%5D=a&filter%5Btype%5D=open",
+            "expected": "filter%5Bstatus%5D=a&filter%5Btype%5D=open"
+        },
+        {
+            "input": "q=hello+world",
+            "expected": "q=hello%20world"
+        },
+        {
+            "input": "q=hello%20world",
+            "expected": "q=hello%20world"
+        },
+        {
+            "input": "plus=%2B",
+            "expected": "plus=%2B"
+        },
+        {
+            "input": "empty=",
+            "expected": "empty="
+        },
+        {
+            "input": "flag",
+            "expected": "flag="
+        },
+        {
+            "input": "a=1&b=%E4%B8%AD%E6%96%87",
+            "expected": "a=1&b=%E4%B8%AD%E6%96%87"
+        },
+        {
+            "input": "UPPER=X&upper=x",
+            "expected": "UPPER=X&upper=x"
+        }
+    ],
+    "canonical_query_array": [
+        {
+            "input": {},
+            "wire": "",
+            "expected": ""
+        },
+        {
+            "input": {
+                "a": "1"
+            },
+            "wire": "a=1",
+            "expected": "a=1"
+        },
+        {
+            "input": {
+                "b": "2",
+                "a": "1"
+            },
+            "wire": "b=2&a=1",
+            "expected": "a=1&b=2"
+        },
+        {
+            "input": {
+                "tag": [
+                    "one",
+                    "two"
+                ]
+            },
+            "wire": "tag=one&tag=two",
+            "expected": "tag=one&tag=two"
+        },
+        {
+            "input": {
+                "filter": {
+                    "status": "open"
+                }
+            },
+            "wire": "filter%5Bstatus%5D=open",
+            "expected": "filter%5Bstatus%5D=open"
+        },
+        {
+            "input": {
+                "filter": {
+                    "status": "open",
+                    "type": "a"
+                },
+                "page": "2"
+            },
+            "wire": "filter%5Bstatus%5D=open&filter%5Btype%5D=a&page=2",
+            "expected": "filter%5Bstatus%5D=open&filter%5Btype%5D=a&page=2"
+        },
+        {
+            "input": {
+                "q": "hello world"
+            },
+            "wire": "q=hello%20world",
+            "expected": "q=hello%20world"
+        },
+        {
+            "input": {
+                "q": "a+b"
+            },
+            "wire": "q=a%2Bb",
+            "expected": "q=a%2Bb"
+        },
+        {
+            "input": {
+                "flag": ""
+            },
+            "wire": "flag=",
+            "expected": "flag="
+        }
+    ],
+    "normalize_content_type": [
+        {
+            "input": "",
+            "expected": ""
+        },
+        {
+            "input": "application/json",
+            "expected": "application/json"
+        },
+        {
+            "input": "Application/JSON; charset=utf-8",
+            "expected": "application/json"
+        },
+        {
+            "input": "TEXT/Plain ;x=1",
+            "expected": "text/plain"
+        },
+        {
+            "input": "application/x-www-form-urlencoded",
+            "expected": "application/x-www-form-urlencoded"
+        }
+    ],
+    "base64url_encode": [
+        {
+            "input_hex": "",
+            "expected": ""
+        },
+        {
+            "input_hex": "61",
+            "expected": "YQ"
+        },
+        {
+            "input_hex": "6162",
+            "expected": "YWI"
+        },
+        {
+            "input_hex": "616263",
+            "expected": "YWJj"
+        },
+        {
+            "input_hex": "61626364",
+            "expected": "YWJjZA"
+        },
+        {
+            "input_hex": "0001ff",
+            "expected": "AAH_"
+        },
+        {
+            "input_hex": "e4b8ade69687",
+            "expected": "5Lit5paH"
+        }
+    ],
+    "base64url_decode": [
+        {
+            "input": "qE8f",
+            "expected_hex": "a84f1f"
+        },
+        {
+            "input": "AAAA",
+            "expected_hex": "000000"
+        },
+        {
+            "input": "qE8f=",
+            "expected_hex": null
+        },
+        {
+            "input": "qE+8f",
+            "expected_hex": null
+        },
+        {
+            "input": "!!!",
+            "expected_hex": null
+        },
+        {
+            "input": "",
+            "expected_hex": null
+        }
+    ],
+    "signature": [
+        {
+            "name": "post json with body",
+            "input": {
+                "method": "post",
+                "path": "/api/orders/",
+                "query": "",
+                "content_type": "application/json; charset=utf-8",
+                "body": "{\"sku\":\"A-1\"}",
+                "timestamp": 1700000000,
+                "nonce": "5f1c9e2a77b34d01ae95c8d012b64f7a",
+                "client_id": "product-center",
+                "target_service": "order-api",
+                "key_id": "order-signing"
+            },
+            "canonical": "1\nPOST\n/api/orders\n\napplication/json\n8589efab68c9a803899596e022c3f653bd430afca6d73bcc82051c623aab242f\n1700000000\n5f1c9e2a77b34d01ae95c8d012b64f7a\nproduct-center\norder-api\norder-signing",
+            "body_sha256": "8589efab68c9a803899596e022c3f653bd430afca6d73bcc82051c623aab242f",
+            "signature": "IuU2DNRubqOn31AUgO3JYIgAxlMk8HkBWjJk7algAo0"
+        },
+        {
+            "name": "get with repeated query keys",
+            "input": {
+                "method": "GET",
+                "path": "/api/orders",
+                "query": "tags=y&tags=x",
+                "content_type": "",
+                "body": "",
+                "timestamp": 1700000000,
+                "nonce": "5f1c9e2a77b34d01ae95c8d012b64f7a",
+                "client_id": "product-center",
+                "target_service": "order-api",
+                "key_id": "order-signing"
+            },
+            "canonical": "1\nGET\n/api/orders\ntags=x&tags=y\n\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\n1700000000\n5f1c9e2a77b34d01ae95c8d012b64f7a\nproduct-center\norder-api\norder-signing",
+            "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "signature": "z2HFMKyLi8SDdiVFgfB_TBw5yK4wNpY3gLZGF0rFk9w"
+        },
+        {
+            "name": "get with bracketed query",
+            "input": {
+                "method": "GET",
+                "path": "/api/orders",
+                "query": "filter%5Bstatus%5D=open",
+                "content_type": "",
+                "body": "",
+                "timestamp": 1700000000,
+                "nonce": "5f1c9e2a77b34d01ae95c8d012b64f7a",
+                "client_id": "product-center",
+                "target_service": "order-api",
+                "key_id": "order-signing"
+            },
+            "canonical": "1\nGET\n/api/orders\nfilter%5Bstatus%5D=open\n\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\n1700000000\n5f1c9e2a77b34d01ae95c8d012b64f7a\nproduct-center\norder-api\norder-signing",
+            "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "signature": "vrhNFczmc1uF_BfrDmsJbckrB3JDSuzdNgADjppR37Y"
+        },
+        {
+            "name": "delete empty body dot segments",
+            "input": {
+                "method": "DELETE",
+                "path": "/api/../api/orders/42",
+                "query": "",
+                "content_type": "",
+                "body": "",
+                "timestamp": 1700000000,
+                "nonce": "5f1c9e2a77b34d01ae95c8d012b64f7a",
+                "client_id": "product-center",
+                "target_service": "order-api",
+                "key_id": "order-signing"
+            },
+            "canonical": "1\nDELETE\n/api/orders/42\n\n\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\n1700000000\n5f1c9e2a77b34d01ae95c8d012b64f7a\nproduct-center\norder-api\norder-signing",
+            "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "signature": "ta-U2nK8BNaDCN7jL8iC0WXxinhzexy9_Nif14a1xZc"
+        },
+        {
+            "name": "put utf8 body",
+            "input": {
+                "method": "PUT",
+                "path": "/api/orders/42",
+                "query": "lang=zh",
+                "content_type": "application/json",
+                "body": "{\"name\":\"中文名称\"}",
+                "timestamp": 1700000000,
+                "nonce": "5f1c9e2a77b34d01ae95c8d012b64f7a",
+                "client_id": "product-center",
+                "target_service": "order-api",
+                "key_id": "order-signing"
+            },
+            "canonical": "1\nPUT\n/api/orders/42\nlang=zh\napplication/json\n007c4295d3197babff971bdbbbcf739bf7f7c2ad67a696d51f37b5da420bf8a9\n1700000000\n5f1c9e2a77b34d01ae95c8d012b64f7a\nproduct-center\norder-api\norder-signing",
+            "body_sha256": "007c4295d3197babff971bdbbbcf739bf7f7c2ad67a696d51f37b5da420bf8a9",
+            "signature": "5hz7j1FimrlTTUyhlrT0Dh2Yc98E6-Xe7eFEPyCzyfM"
+        }
+    ],
+    "aead_aad": [
+        {
+            "input": {
+                "direction": "request",
+                "method": "POST",
+                "path": "/api/orders",
+                "key_id": "order-request-encryption",
+                "client_id": "product-center",
+                "target_service": "order-api"
+            },
+            "expected": "1\nrequest\nproduct-center\norder-api\nPOST\n/api/orders\norder-request-encryption"
+        },
+        {
+            "input": {
+                "direction": "response",
+                "method": "",
+                "path": "",
+                "key_id": "order-response-encryption",
+                "client_id": "product-center",
+                "target_service": "order-api"
+            },
+            "expected": "1\nresponse\nproduct-center\norder-api\n\n/\norder-response-encryption"
+        },
+        {
+            "input": {
+                "direction": "request",
+                "method": "get",
+                "path": "/api/orders/",
+                "key_id": "k1",
+                "client_id": "product-center",
+                "target_service": "order-api"
+            },
+            "expected": "1\nrequest\nproduct-center\norder-api\nGET\n/api/orders\nk1"
+        }
+    ],
+    "response_signature": [
+        {
+            "input": {
+                "body": "{\"ok\":true}",
+                "client_id": "product-center",
+                "target_service": "order-api",
+                "key_id": "order-response-signing"
+            },
+            "canonical": "1\nresponse\nproduct-center\norder-api\n4062edaf750fb8074e7e83e0c9028c94e32468a8b6f1614774328ef045150f93\norder-response-signing",
+            "signature": "el3JZJXSqAjpamWhnqJEVpwo-7zXqgxBGqiO7XDZk_Q"
+        },
+        {
+            "input": {
+                "body": "",
+                "client_id": "product-center",
+                "target_service": "order-api",
+                "key_id": "order-response-signing"
+            },
+            "canonical": "1\nresponse\nproduct-center\norder-api\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\norder-response-signing",
+            "signature": "vFgfW1sO8tpGvtOZKCcUhd4xl6VsJTDgHVd14duF8bI"
+        },
+        {
+            "input": {
+                "body": "{\"order_id\":42,\"amount\":\"100.00\"}",
+                "client_id": "product-center",
+                "target_service": "order-api",
+                "key_id": "order-response-signing"
+            },
+            "canonical": "1\nresponse\nproduct-center\norder-api\n818aa4c041e334b4cc4d350b035601c4227465de636ac29960fa04905b7c81fb\norder-response-signing",
+            "signature": "JcqIyey-33qLNi68VqAq2biX0kJ7c9XN3Gn0ohO6gYI"
+        }
+    ],
+    "replay_ttl": [
+        {
+            "max_age_seconds": 300,
+            "clock_skew_seconds": 60,
+            "replay_safety_margin_seconds": 5,
+            "expected_ttl_seconds": 425
+        },
+        {
+            "max_age_seconds": 60,
+            "clock_skew_seconds": 5,
+            "replay_safety_margin_seconds": 1,
+            "expected_ttl_seconds": 71
+        },
+        {
+            "max_age_seconds": 900,
+            "clock_skew_seconds": 120,
+            "replay_safety_margin_seconds": 10,
+            "expected_ttl_seconds": 1150
+        }
+    ]
+}

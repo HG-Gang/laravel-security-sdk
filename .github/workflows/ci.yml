@@ -1,0 +1,173 @@
+# Tozo Security SDK 持续集成
+#
+# 三条独立作业，任一失败即阻断合并：
+#   1. php    —— PHP 7.4 / 8.0 / 8.1 / 8.2 矩阵执行 lint + 规范自查 + 全量测试
+#   2. protocol —— 冻结向量未被静默改写，且 Python / Go 独立实现逐字节一致
+#   3. package  —— 分发包不含开发期文件，且生产 autoload 可独立解析
+#
+# 设计要点：
+# - PHP 7.4 是声明的最低版本，必须在矩阵首位且不允许 continue-on-error
+# - 依赖安装使用 --prefer-lowest 的作业单独列出，避免掩盖上限兼容问题
+# - 协议向量作业刻意不依赖 PHP SDK：跨语言一致性必须由外部实现证明
+
+name: CI
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+
+permissions:
+  contents: read
+
+jobs:
+  php:
+    name: PHP ${{ matrix.php }} (${{ matrix.dependencies }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      # 不使用 fail-fast：需要同时看到所有版本的结果，便于定位是版本特有还是普遍问题。
+      fail-fast: false
+      matrix:
+        php: ['7.4', '8.0', '8.1', '8.2']
+        dependencies: [locked]
+        include:
+          # 最低版本 + 最低依赖：验证 composer.json 声明的下限真实可安装。
+          - php: '7.4'
+            dependencies: lowest
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 PHP ${{ matrix.php }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: json, openssl, mbstring
+          coverage: none
+          # 严格模式：把 deprecation 也暴露出来，避免 8.x 上的隐性不兼容被忽略。
+          ini-values: error_reporting=E_ALL, display_errors=On
+
+      - name: 校验 composer.json
+        run: composer validate --no-check-publish
+
+      - name: 安装依赖（锁定版本）
+        if: matrix.dependencies == 'locked'
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: 安装依赖（最低版本）
+        if: matrix.dependencies == 'lowest'
+        run: composer update --no-interaction --no-progress --prefer-dist --prefer-lowest --prefer-stable
+
+      - name: 确认 platform_check 允许 PHP 7.4
+        run: php -r "$s=@file_get_contents('vendor/composer/platform_check.php'); if($s===false){echo 'no platform_check'.PHP_EOL;exit(0);} if(preg_match('/PHP_VERSION_ID\s*>=\s*(\d+)/',$s,$m)&&(int)$m[1]>70400){fwrite(STDERR,'platform_check 要求 '.$m[1].'，高于 7.4 基线'.PHP_EOL);exit(1);} echo 'platform_check OK'.PHP_EOL;"
+
+      - name: 语法检查
+        run: composer run lint
+
+      - name: 注释与规范自查
+        run: composer run audit-style
+
+      - name: 全量测试
+        run: composer run test
+
+  protocol:
+    name: 协议一致性（Python + Go）
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 PHP 8.1
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          extensions: json, openssl, mbstring
+          coverage: none
+
+      - name: 安装依赖
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: 冻结向量未被静默改写
+        # 若实现改变了协议行为，--check 会失败：此时必须升协议版本而不是覆盖 v1 向量。
+        run: php tools/gen_vectors.php --check
+
+      - name: 安装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      - name: Python 独立实现消费向量
+        run: python protocol/conformance/python/conformance_test.py
+
+      - name: 安装 Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Go 格式与静态检查
+        working-directory: protocol/conformance/go
+        run: |
+          test -z "$(gofmt -l .)" || { echo '需要 gofmt'; gofmt -l .; exit 1; }
+          go vet ./...
+
+      - name: Go 独立实现消费向量
+        working-directory: protocol/conformance/go
+        run: go run .
+
+  package:
+    name: 分发包检查
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 PHP 7.4
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '7.4'
+          extensions: json, openssl, mbstring
+          coverage: none
+
+      - name: 生成分发归档并检查内容
+        run: |
+          git archive --format=tar HEAD | tar -tf - > /tmp/dist.txt
+          echo '--- 归档内容 ---'
+          cat /tmp/dist.txt
+
+          # protocol/ 是跨语言协议事实来源，必须随包分发。
+          grep -q '^protocol/test-vectors-v1.json$' /tmp/dist.txt \
+            || { echo 'protocol 向量未包含在分发包中'; exit 1; }
+
+          # 开发期目录不应进入分发包。
+          for excluded in tests/ docs/ .idea/ .claude/; do
+            if grep -q "^${excluded}" /tmp/dist.txt; then
+              echo "分发包意外包含 ${excluded}"
+              exit 1
+            fi
+          done
+
+          echo '分发包内容检查通过'
+
+      - name: 仅生产依赖可独立解析
+        run: |
+          composer install --no-interaction --no-progress --prefer-dist --no-dev
+          # 不加载 tests 的情况下，核心类必须可解析。
+          php -r "require 'vendor/autoload.php'; \
+            foreach ([ \
+              'Tozo\\Security\\Profile', \
+              'Tozo\\Security\\ServiceProvider', \
+              'Tozo\\Security\\Protocol\\CanonicalRequest', \
+              'Tozo\\Security\\Signature\\HmacSha256Signer', \
+              'Tozo\\Security\\Encryption\\AesGcmCipher', \
+              'Tozo\\Security\\Encryption\\ResponseIntegrityChecker', \
+              'Tozo\\Security\\Token\\JwtTokenVerifier', \
+              'Tozo\\Security\\Laravel\\Middleware\\ResponseIntegrityMiddleware', \
+            ] as \$class) { \
+              if (!class_exists(\$class)) { fwrite(STDERR, \"缺失: \$class\n\"); exit(1); } \
+            } \
+            echo '生产 autoload 检查通过' . PHP_EOL;"
