@@ -49,13 +49,13 @@ $time        = '01:10';
  */
 function phpHeader(string $projectName, string $user, string $date, string $time)
 {
-    return "/**\n"
-    	. " * Created by PhpStorm.\n"
-    	. " * Project name {$projectName}.\n"
-    	. " * User: {$user}\n"
-    	. " * Date: {$date}\n"
-    	. " * Time: {$time}\n"
-    	. " */\n";
+	return "/**\n"
+		. " * Created by PhpStorm.\n"
+		. " * Project name {$projectName}.\n"
+		. " * User: {$user}\n"
+		. " * Date: {$date}\n"
+		. " * Time: {$time}\n"
+		. " */\n";
 }
 
 /**
@@ -69,11 +69,11 @@ function phpHeader(string $projectName, string $user, string $date, string $time
  */
 function hashHeader(string $projectName, string $user, string $date, string $time)
 {
-    return "# Created by PhpStorm.\n"
-    	. "# Project name {$projectName}.\n"
-    	. "# User: {$user}\n"
-    	. "# Date: {$date}\n"
-    	. "# Time: {$time}\n";
+	return "# Created by PhpStorm.\n"
+		. "# Project name {$projectName}.\n"
+		. "# User: {$user}\n"
+		. "# Date: {$date}\n"
+		. "# Time: {$time}\n";
 }
 
 /**
@@ -87,11 +87,11 @@ function hashHeader(string $projectName, string $user, string $date, string $tim
  */
 function slashHeader(string $projectName, string $user, string $date, string $time)
 {
-    return "// Created by PhpStorm.\n"
-    	. "// Project name {$projectName}.\n"
-    	. "// User: {$user}\n"
-    	. "// Date: {$date}\n"
-    	. "// Time: {$time}\n";
+	return "// Created by PhpStorm.\n"
+		. "// Project name {$projectName}.\n"
+		. "// User: {$user}\n"
+		. "// Date: {$date}\n"
+		. "// Time: {$time}\n";
 }
 
 /**
@@ -102,39 +102,39 @@ function slashHeader(string $projectName, string $user, string $date, string $ti
  */
 function collectFiles(string $root)
 {
-    $files = [];
-    
-    foreach (['src', 'tests', 'config', 'tools'] as $directory) {
-    	$path = $root . '/' . $directory;
-    	if (!is_dir($path)) {
-    		continue;
-    	}
-    	
-    	foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($path)) as $file) {
-    		if ($file->isFile() && $file->getExtension() === 'php') {
-    			$files[$file->getPathname()] = 'php';
-    		}
-    	}
-    }
-    
-    $conformance = $root . '/protocol/conformance';
-    if (is_dir($conformance)) {
-    	foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($conformance)) as $file) {
-    		if (!$file->isFile()) {
-    			continue;
-    		}
-    		
-    		if ($file->getExtension() === 'py') {
-    			$files[$file->getPathname()] = 'python';
-    		} elseif ($file->getExtension() === 'go') {
-    			$files[$file->getPathname()] = 'go';
-    		}
-    	}
-    }
-    
-    ksort($files);
-    
-    return $files;
+	$files = [];
+	
+	foreach (['src', 'tests', 'config', 'tools'] as $directory) {
+		$path = $root . '/' . $directory;
+		if (!is_dir($path)) {
+			continue;
+		}
+		
+		foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($path)) as $file) {
+			if ($file->isFile() && $file->getExtension() === 'php') {
+				$files[$file->getPathname()] = 'php';
+			}
+		}
+	}
+	
+	$conformance = $root . '/protocol/conformance';
+	if (is_dir($conformance)) {
+		foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($conformance)) as $file) {
+			if (!$file->isFile()) {
+				continue;
+			}
+			
+			if ($file->getExtension() === 'py') {
+				$files[$file->getPathname()] = 'python';
+			} elseif ($file->getExtension() === 'go') {
+				$files[$file->getPathname()] = 'go';
+			}
+		}
+	}
+	
+	ksort($files);
+	
+	return $files;
 }
 
 /**
@@ -155,32 +155,32 @@ function collectFiles(string $root)
  */
 function insertHeader(string $source, string $language, string $header)
 {
-    if ($language === 'php') {
-    	$openTag  = "<?php\n";
-    	$position = strpos($source, $openTag);
-    	
-    	if ($position !== 0) {
-    		// 仅处理以 <?php 开头的文件，避免破坏含前导内容的特殊文件。
-    		return null;
-    	}
-    	
-    	return $openTag . "\n" . $header . substr($source, strlen($openTag));
-    }
-    
-    if ($language === 'python') {
-    	return $header . "\n" . $source;
-    }
-    
-    // Go：标识块放在文件最开头。
-    //
-    // 不能插到 package 之前的位置——那里紧贴着包文档注释，
-    // 插入后标识块会被 godoc 吸收为包文档的一部分。放在文件最顶端并空一行，
-    // 既保持标识块可见，又不破坏"包文档注释必须紧邻 package"的 Go 约定。
-    if (preg_match('/^package\s+\w+/m', $source) !== 1) {
-    	return null;
-    }
-    
-    return $header . "\n" . $source;
+	if ($language === 'php') {
+		$openTag  = "<?php\n";
+		$position = strpos($source, $openTag);
+		
+		if ($position !== 0) {
+			// 仅处理以 <?php 开头的文件，避免破坏含前导内容的特殊文件。
+			return null;
+		}
+		
+		return $openTag . "\n" . $header . substr($source, strlen($openTag));
+	}
+	
+	if ($language === 'python') {
+		return $header . "\n" . $source;
+	}
+	
+	// Go：标识块放在文件最开头。
+	//
+	// 不能插到 package 之前的位置——那里紧贴着包文档注释，
+	// 插入后标识块会被 godoc 吸收为包文档的一部分。放在文件最顶端并空一行，
+	// 既保持标识块可见，又不破坏"包文档注释必须紧邻 package"的 Go 约定。
+	if (preg_match('/^package\s+\w+/m', $source) !== 1) {
+		return null;
+	}
+	
+	return $header . "\n" . $source;
 }
 
 $files = collectFiles($root);
@@ -191,57 +191,57 @@ $failed   = [];
 $missing  = [];
 
 foreach ($files as $path => $language) {
-    $source = (string)file_get_contents($path);
-    $short  = str_replace($root, '', $path);
-    
-    // 幂等：已含标识行的文件不再处理。
-    if (strpos($source, 'Created by PhpStorm') !== false) {
-    	$skipped++;
-    	continue;
-    }
-    
-    if ($checkOnly) {
-    	$missing[] = $short;
-    	continue;
-    }
-    
-    $header = $language === 'php'
-    	? phpHeader($projectName, $user, $date, $time)
-    	: ($language === 'python'
-    		? hashHeader($projectName, $user, $date, $time)
-    		: slashHeader($projectName, $user, $date, $time));
-    
-    $updated = insertHeader($source, $language, $header);
-    
-    if ($updated === null) {
-    	$failed[] = $short;
-    	continue;
-    }
-    
-    // 保持无 BOM 的 UTF-8 与原有 LF 行尾。
-    file_put_contents($path, $updated);
-    $inserted++;
+	$source = (string)file_get_contents($path);
+	$short  = str_replace($root, '', $path);
+	
+	// 幂等：已含标识行的文件不再处理。
+	if (strpos($source, 'Created by PhpStorm') !== false) {
+		$skipped++;
+		continue;
+	}
+	
+	if ($checkOnly) {
+		$missing[] = $short;
+		continue;
+	}
+	
+	$header = $language === 'php'
+		? phpHeader($projectName, $user, $date, $time)
+		: ($language === 'python'
+			? hashHeader($projectName, $user, $date, $time)
+			: slashHeader($projectName, $user, $date, $time));
+	
+	$updated = insertHeader($source, $language, $header);
+	
+	if ($updated === null) {
+		$failed[] = $short;
+		continue;
+	}
+	
+	// 保持无 BOM 的 UTF-8 与原有 LF 行尾。
+	file_put_contents($path, $updated);
+	$inserted++;
 }
 
 if ($checkOnly) {
-    printf('待处理文件总数：%d｜已有头部：%d｜缺失：%d%s', count($files), $skipped, count($missing), PHP_EOL);
-    
-    foreach (array_slice($missing, 0, 30) as $one) {
-    	echo '  - ' . $one . PHP_EOL;
-    }
-    
-    if (count($missing) > 30) {
-    	printf('  ... 其余 %d 项%s', count($missing) - 30, PHP_EOL);
-    }
-    
-    exit($missing === [] ? 0 : 1);
+	printf('待处理文件总数：%d｜已有头部：%d｜缺失：%d%s', count($files), $skipped, count($missing), PHP_EOL);
+	
+	foreach (array_slice($missing, 0, 30) as $one) {
+		echo '  - ' . $one . PHP_EOL;
+	}
+	
+	if (count($missing) > 30) {
+		printf('  ... 其余 %d 项%s', count($missing) - 30, PHP_EOL);
+	}
+	
+	exit($missing === [] ? 0 : 1);
 }
 
 printf('文件总数：%d｜新插入：%d｜已存在跳过：%d｜无法定位锚点：%d%s',
-    count($files), $inserted, $skipped, count($failed), PHP_EOL);
+	count($files), $inserted, $skipped, count($failed), PHP_EOL);
 
 foreach ($failed as $one) {
-    echo '  未处理（锚点缺失）: ' . $one . PHP_EOL;
+	echo '  未处理（锚点缺失）: ' . $one . PHP_EOL;
 }
 
 exit($failed === [] ? 0 : 1);

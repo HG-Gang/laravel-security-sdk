@@ -29,35 +29,35 @@ $total  = 0;
 $failed = 0;
 
 foreach ($directories as $directory) {
-    $path = $root . DIRECTORY_SEPARATOR . $directory;
-    if (!is_dir($path)) {
-    	continue;
-    }
-    
-    $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($path));
-    
-    foreach ($iterator as $file) {
-    	if (!$file->isFile() || $file->getExtension() !== 'php') {
-    		continue;
-    	}
-    	
-    	$total++;
-    	
-    	// 用当前运行的 PHP 二进制执行语法检查，保证与目标版本一致。
-    	$command = escapeshellarg(PHP_BINARY) . ' -l ' . escapeshellarg($file->getPathname());
-    	exec($command, $output, $exitCode);
-    	
-    	if ($exitCode !== 0) {
-    		$failed++;
-    		echo 'FAIL: ' . str_replace($root, '', $file->getPathname()) . PHP_EOL;
-    		foreach ($output as $line) {
-    			echo '      ' . $line . PHP_EOL;
-    		}
-    	}
-    	
-    	// exec() 会向 $output 追加而非覆盖，必须逐个文件重置。
-    	$output = [];
-    }
+	$path = $root . DIRECTORY_SEPARATOR . $directory;
+	if (!is_dir($path)) {
+		continue;
+	}
+	
+	$iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($path));
+	
+	foreach ($iterator as $file) {
+		if (!$file->isFile() || $file->getExtension() !== 'php') {
+			continue;
+		}
+		
+		$total++;
+		
+		// 用当前运行的 PHP 二进制执行语法检查，保证与目标版本一致。
+		$command = escapeshellarg(PHP_BINARY) . ' -l ' . escapeshellarg($file->getPathname());
+		exec($command, $output, $exitCode);
+		
+		if ($exitCode !== 0) {
+			$failed++;
+			echo 'FAIL: ' . str_replace($root, '', $file->getPathname()) . PHP_EOL;
+			foreach ($output as $line) {
+				echo '      ' . $line . PHP_EOL;
+			}
+		}
+		
+		// exec() 会向 $output 追加而非覆盖，必须逐个文件重置。
+		$output = [];
+	}
 }
 
 printf('PHP %s: 检查 %d 个文件，失败 %d 个%s', PHP_VERSION, $total, $failed, PHP_EOL);

@@ -61,18 +61,18 @@ const METHOD_EXEMPT_DIRECTORIES = ['tests'];
  * 统计文本中的中日韩统一表意文字数量。
  *
  * 使用范围：成员级注释深度判定。
- * 适用场景：只数汉字，避免把类名、@var 标注、英文术语与标点算进说明字数——
+ * 适用场景：只数汉字，避免把类名、@param string $text 待统计文本｜注释原文或剥离后的说明。示例："调用方唯一标识。"
+ * @return int 汉字个数。示例：7
+ * @var 标注、英文术语与标点算进说明字数——
  *           那样 `@var CacheRepository` 这类纯标注也会被判为达标。
  *
  * 函数逻辑：
  * 1. 用 Unicode 区间 4e00-9fff 匹配全部汉字并计数。
  *
- * @param string $text 待统计文本｜注释原文或剥离后的说明。示例："调用方唯一标识。"
- * @return int 汉字个数。示例：7
  */
 function cjk_length(string $text)
 {
-    return (int)preg_match_all('/[\x{4e00}-\x{9fff}]/u', $text);
+	return (int)preg_match_all('/[\x{4e00}-\x{9fff}]/u', $text);
 }
 
 /**
@@ -93,35 +93,35 @@ function cjk_length(string $text)
  */
 function strip_annotations(string $comment)
 {
-    $kept = [];
-
-    foreach (preg_split('/\r\n|\r|\n/', $comment) ?: [] as $line) {
-        $line = trim($line);
-        $line = preg_replace('#^/\*+#', '', (string)$line);
-        $line = preg_replace('#\*+/$#', '', (string)$line);
-        $line = preg_replace('#^\*+#', '', (string)$line);
-        $line = trim((string)$line);
-
-        if ($line === '') {
-            continue;
-        }
-
-        // 标注行：剥掉 @tag 与紧随的类型表达式，保留其后的说明。
-        // 类型表达式允许联合类型、数组泛型与命名空间，例如 array<string,Profile>|null。
-        if (strncmp($line, '@', 1) === 0) {
-            $line = (string)preg_replace('/^@[A-Za-z-]+\s*/', '', $line);
-            $line = (string)preg_replace('/^[A-Za-z0-9_\\\\|\[\]<>,\s\{\}:]+/', '', $line);
-            $line = trim($line);
-
-            if ($line === '') {
-                continue;
-            }
-        }
-
-        $kept[] = $line;
-    }
-
-    return implode(' ', $kept);
+	$kept = [];
+	
+	foreach (preg_split('/\r\n|\r|\n/', $comment) ?: [] as $line) {
+		$line = trim($line);
+		$line = preg_replace('#^/\*+#', '', (string)$line);
+		$line = preg_replace('#\*+/$#', '', (string)$line);
+		$line = preg_replace('#^\*+#', '', (string)$line);
+		$line = trim((string)$line);
+		
+		if ($line === '') {
+			continue;
+		}
+		
+		// 标注行：剥掉 @tag 与紧随的类型表达式，保留其后的说明。
+		// 类型表达式允许联合类型、数组泛型与命名空间，例如 array<string,Profile>|null。
+		if (strncmp($line, '@', 1) === 0) {
+			$line = (string)preg_replace('/^@[A-Za-z-]+\s*/', '', $line);
+			$line = (string)preg_replace('/^[A-Za-z0-9_\\\\|\[\]<>,\s\{\}:]+/', '', $line);
+			$line = trim($line);
+			
+			if ($line === '') {
+				continue;
+			}
+		}
+		
+		$kept[] = $line;
+	}
+	
+	return implode(' ', $kept);
 }
 
 /**
@@ -139,21 +139,21 @@ function strip_annotations(string $comment)
  */
 function collect_php_files(string $directory)
 {
-    if (!is_dir($directory)) {
-        return [];
-    }
-
-    $files = [];
-
-    foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory)) as $file) {
-        if ($file->isFile() && $file->getExtension() === 'php') {
-            $files[] = $file->getPathname();
-        }
-    }
-
-    sort($files);
-
-    return $files;
+	if (!is_dir($directory)) {
+		return [];
+	}
+	
+	$files = [];
+	
+	foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory)) as $file) {
+		if ($file->isFile() && $file->getExtension() === 'php') {
+			$files[] = $file->getPathname();
+		}
+	}
+	
+	sort($files);
+	
+	return $files;
 }
 
 /**
@@ -173,31 +173,31 @@ function collect_php_files(string $directory)
  */
 function adjacent_comment(array $tokens, int $index)
 {
-    // T_READONLY 自 PHP 8.1 起才存在；基线为 7.4 必须动态取值。
-    $readonly = defined('T_READONLY') ? constant('T_READONLY') : -1;
-
-    $passthrough = [
-        T_WHITESPACE, T_PUBLIC, T_PROTECTED, T_PRIVATE,
-        T_STATIC, T_FINAL, T_ABSTRACT, T_CONST, T_FUNCTION, $readonly,
-    ];
-
-    for ($k = $index - 1; $k >= 0; $k--) {
-        if (!is_array($tokens[$k])) {
-            return null;
-        }
-
-        if (in_array($tokens[$k][0], [T_DOC_COMMENT, T_COMMENT], true)) {
-            return $tokens[$k][1];
-        }
-
-        if (in_array($tokens[$k][0], $passthrough, true)) {
-            continue;
-        }
-
-        return null;
-    }
-
-    return null;
+	// T_READONLY 自 PHP 8.1 起才存在；基线为 7.4 必须动态取值。
+	$readonly = defined('T_READONLY') ? constant('T_READONLY') : -1;
+	
+	$passthrough = [
+		T_WHITESPACE, T_PUBLIC, T_PROTECTED, T_PRIVATE,
+		T_STATIC, T_FINAL, T_ABSTRACT, T_CONST, T_FUNCTION, $readonly,
+	];
+	
+	for ($k = $index - 1; $k >= 0; $k--) {
+		if (!is_array($tokens[$k])) {
+			return null;
+		}
+		
+		if (in_array($tokens[$k][0], [T_DOC_COMMENT, T_COMMENT], true)) {
+			return $tokens[$k][1];
+		}
+		
+		if (in_array($tokens[$k][0], $passthrough, true)) {
+			continue;
+		}
+		
+		return null;
+	}
+	
+	return null;
 }
 
 /**
@@ -219,65 +219,65 @@ function adjacent_comment(array $tokens, int $index)
  */
 function declaration_kind(array $tokens, int $index, bool $isConst)
 {
-    $count = count($tokens);
-
-    for ($j = $index + 1; $j < $count; $j++) {
-        $token = $tokens[$j];
-
-        if (!is_array($token)) {
-            // 括号说明这是方法签名的开始；等号或分号说明已越过声明头。
-            if ($token === '(') {
-                return null;
-            }
-
-            if ($token === '=' || $token === ';') {
-                return null;
-            }
-
-            continue;
-        }
-
-        if ($token[0] === T_FUNCTION) {
-            // 取 function 之后的第一个标识符作为方法名。
-            for ($m = $j + 1; $m < $count; $m++) {
-                if (is_array($tokens[$m]) && $tokens[$m][0] === T_STRING) {
-                    return ['method', $tokens[$m][1]];
-                }
-
-                if (!is_array($tokens[$m]) && $tokens[$m] === '(') {
-                    // 匿名函数没有名字，不纳入审查。
-                    return null;
-                }
-            }
-
-            return null;
-        }
-
-        if ($isConst) {
-            if ($token[0] === T_STRING) {
-                return ['member', $token[1]];
-            }
-
-            if ($token[0] === T_WHITESPACE) {
-                continue;
-            }
-
-            return null;
-        }
-
-        if ($token[0] === T_VARIABLE) {
-            return ['member', $token[1]];
-        }
-
-        // 类型声明、数组类型、命名空间分隔符等可跨过。
-        if (in_array($token[0], [T_WHITESPACE, T_STATIC, T_FINAL, T_ABSTRACT, T_STRING, T_ARRAY, T_NS_SEPARATOR], true)) {
-            continue;
-        }
-
-        return null;
-    }
-
-    return null;
+	$count = count($tokens);
+	
+	for ($j = $index + 1; $j < $count; $j++) {
+		$token = $tokens[$j];
+		
+		if (!is_array($token)) {
+			// 括号说明这是方法签名的开始；等号或分号说明已越过声明头。
+			if ($token === '(') {
+				return null;
+			}
+			
+			if ($token === '=' || $token === ';') {
+				return null;
+			}
+			
+			continue;
+		}
+		
+		if ($token[0] === T_FUNCTION) {
+			// 取 function 之后的第一个标识符作为方法名。
+			for ($m = $j + 1; $m < $count; $m++) {
+				if (is_array($tokens[$m]) && $tokens[$m][0] === T_STRING) {
+					return ['method', $tokens[$m][1]];
+				}
+				
+				if (!is_array($tokens[$m]) && $tokens[$m] === '(') {
+					// 匿名函数没有名字，不纳入审查。
+					return null;
+				}
+			}
+			
+			return null;
+		}
+		
+		if ($isConst) {
+			if ($token[0] === T_STRING) {
+				return ['member', $token[1]];
+			}
+			
+			if ($token[0] === T_WHITESPACE) {
+				continue;
+			}
+			
+			return null;
+		}
+		
+		if ($token[0] === T_VARIABLE) {
+			return ['member', $token[1]];
+		}
+		
+		// 类型声明、数组类型、命名空间分隔符等可跨过。
+		if (in_array($token[0], [T_WHITESPACE, T_STATIC, T_FINAL, T_ABSTRACT, T_STRING, T_ARRAY, T_NS_SEPARATOR], true)) {
+			continue;
+		}
+		
+		return null;
+	}
+	
+	return null;
 }
 
 /**
@@ -298,99 +298,99 @@ function declaration_kind(array $tokens, int $index, bool $isConst)
  */
 function scan_file(string $file, string $root, bool $methodExempt)
 {
-    $source = (string)file_get_contents($file);
-    $tokens = token_get_all($source);
-    $count  = count($tokens);
-    $short  = str_replace($root, '', $file);
-
-    $problems   = [];
-    $braceDepth = 0;
-    $classDepth = -1;
-
-    for ($i = 0; $i < $count; $i++) {
-        $token = $tokens[$i];
-
-        if (!is_array($token)) {
-            if ($token === '{') {
-                $braceDepth++;
-            } elseif ($token === '}') {
-                if ($braceDepth === $classDepth) {
-                    $classDepth = -1;
-                }
-
-                $braceDepth--;
-            }
-
-            continue;
-        }
-
-        if (in_array($token[0], [T_CLASS, T_INTERFACE, T_TRAIT], true)) {
-            $classDepth = $braceDepth + 1;
-            continue;
-        }
-
-        $isVisibility = in_array($token[0], [T_PUBLIC, T_PROTECTED, T_PRIVATE], true);
-        $isConst      = $token[0] === T_CONST;
-
-        if ((!$isVisibility && !$isConst) || $classDepth === -1 || $braceDepth !== $classDepth) {
-            continue;
-        }
-
-        $declaration = declaration_kind($tokens, $i, $isConst);
-        if ($declaration === null) {
-            continue;
-        }
-
-        list($kind, $name) = $declaration;
-
-        $label   = $short . ' :: ' . $name . ' (L' . $token[2] . ')';
-        $comment = adjacent_comment($tokens, $i);
-
-        if ($kind === 'method') {
-            if ($methodExempt) {
-                continue;
-            }
-
-            if ($comment === null) {
-                $problems[] = ['label' => $label, 'kind' => 'method', 'detail' => '无 PHPDoc'];
-                continue;
-            }
-
-            $missing = [];
-            foreach (REQUIRED_METHOD_SECTIONS as $section) {
-                if (strpos($comment, $section) === false) {
-                    $missing[] = $section;
-                }
-            }
-
-            if ($missing !== []) {
-                $problems[] = [
-                    'label'  => $label,
-                    'kind'   => 'method',
-                    'detail' => '缺段：' . implode('、', $missing),
-                ];
-            }
-
-            continue;
-        }
-
-        if ($comment === null) {
-            $problems[] = ['label' => $label, 'kind' => 'member', 'detail' => '无注释'];
-            continue;
-        }
-
-        $chars = cjk_length(strip_annotations($comment));
-
-        if ($chars < MIN_MEMBER_CHARS) {
-            $problems[] = [
-                'label'  => $label,
-                'kind'   => 'member',
-                'detail' => '剥离标注后仅 ' . $chars . ' 字（下限 ' . MIN_MEMBER_CHARS . '）',
-            ];
-        }
-    }
-
-    return $problems;
+	$source = (string)file_get_contents($file);
+	$tokens = token_get_all($source);
+	$count  = count($tokens);
+	$short  = str_replace($root, '', $file);
+	
+	$problems   = [];
+	$braceDepth = 0;
+	$classDepth = -1;
+	
+	for ($i = 0; $i < $count; $i++) {
+		$token = $tokens[$i];
+		
+		if (!is_array($token)) {
+			if ($token === '{') {
+				$braceDepth++;
+			} elseif ($token === '}') {
+				if ($braceDepth === $classDepth) {
+					$classDepth = -1;
+				}
+				
+				$braceDepth--;
+			}
+			
+			continue;
+		}
+		
+		if (in_array($token[0], [T_CLASS, T_INTERFACE, T_TRAIT], true)) {
+			$classDepth = $braceDepth + 1;
+			continue;
+		}
+		
+		$isVisibility = in_array($token[0], [T_PUBLIC, T_PROTECTED, T_PRIVATE], true);
+		$isConst      = $token[0] === T_CONST;
+		
+		if ((!$isVisibility && !$isConst) || $classDepth === -1 || $braceDepth !== $classDepth) {
+			continue;
+		}
+		
+		$declaration = declaration_kind($tokens, $i, $isConst);
+		if ($declaration === null) {
+			continue;
+		}
+		
+		list($kind, $name) = $declaration;
+		
+		$label   = $short . ' :: ' . $name . ' (L' . $token[2] . ')';
+		$comment = adjacent_comment($tokens, $i);
+		
+		if ($kind === 'method') {
+			if ($methodExempt) {
+				continue;
+			}
+			
+			if ($comment === null) {
+				$problems[] = ['label' => $label, 'kind' => 'method', 'detail' => '无 PHPDoc'];
+				continue;
+			}
+			
+			$missing = [];
+			foreach (REQUIRED_METHOD_SECTIONS as $section) {
+				if (strpos($comment, $section) === false) {
+					$missing[] = $section;
+				}
+			}
+			
+			if ($missing !== []) {
+				$problems[] = [
+					'label'  => $label,
+					'kind'   => 'method',
+					'detail' => '缺段：' . implode('、', $missing),
+				];
+			}
+			
+			continue;
+		}
+		
+		if ($comment === null) {
+			$problems[] = ['label' => $label, 'kind' => 'member', 'detail' => '无注释'];
+			continue;
+		}
+		
+		$chars = cjk_length(strip_annotations($comment));
+		
+		if ($chars < MIN_MEMBER_CHARS) {
+			$problems[] = [
+				'label'  => $label,
+				'kind'   => 'member',
+				'detail' => '剥离标注后仅 ' . $chars . ' 字（下限 ' . MIN_MEMBER_CHARS . '）',
+			];
+		}
+	}
+	
+	return $problems;
 }
 
 /**
@@ -409,91 +409,91 @@ function scan_file(string $file, string $root, bool $methodExempt)
  */
 function run(bool $listOnly)
 {
-    $root = dirname(__DIR__);
-
-    $shallowMembers = [];
-    $thinMethods    = [];
-    $totalMembers   = 0;
-    $totalMethods   = 0;
-    $totalFiles     = 0;
-
-    foreach (['src', 'tests', 'config', 'tools'] as $directory) {
-        $methodExempt = in_array($directory, METHOD_EXEMPT_DIRECTORIES, true);
-
-        foreach (collect_php_files($root . '/' . $directory) as $file) {
-            $totalFiles++;
-
-            foreach (scan_file($file, $root, $methodExempt) as $problem) {
-                if ($problem['kind'] === 'member') {
-                    $shallowMembers[] = $problem;
-                } else {
-                    $thinMethods[] = $problem;
-                }
-            }
-        }
-    }
-
-    // 统计总量用于确认解析逻辑未失效：扫不到成员说明 token 解析出了问题，
-    // 那种情况下「0 个未达标」是假通过。
-    foreach (['src', 'tests', 'config', 'tools'] as $directory) {
-        foreach (collect_php_files($root . '/' . $directory) as $file) {
-            $tokens = token_get_all((string)file_get_contents($file));
-
-            foreach ($tokens as $index => $token) {
-                if (!is_array($token)) {
-                    continue;
-                }
-
-                if ($token[0] === T_FUNCTION) {
-                    $totalMethods++;
-                }
-
-                if (in_array($token[0], [T_PUBLIC, T_PROTECTED, T_PRIVATE, T_CONST], true)) {
-                    $totalMembers++;
-                }
-            }
-        }
-    }
-
-    if (!$listOnly) {
-        echo '===== 中文注释深度审查（标准 v0.0.3 第 5.1 节）=====' . PHP_EOL . PHP_EOL;
-        echo '扫描文件数                         ' . $totalFiles . PHP_EOL;
-        echo '成员/方法声明 token 数             ' . $totalMembers . ' / ' . $totalMethods . PHP_EOL;
-        echo PHP_EOL;
-        echo '成员说明过浅（<' . MIN_MEMBER_CHARS . ' 字）        ' . count($shallowMembers) . PHP_EOL;
-        echo '方法缺三段说明                     ' . count($thinMethods) . PHP_EOL;
-        echo PHP_EOL;
-    }
-
-    foreach ([['成员说明过浅', $shallowMembers], ['方法缺三段说明', $thinMethods]] as list($title, $items)) {
-        if ($items === []) {
-            continue;
-        }
-
-        echo '--- ' . $title . '（' . count($items) . ' 项）---' . PHP_EOL;
-
-        foreach ($items as $item) {
-            echo '    - ' . $item['label'] . '  ' . $item['detail'] . PHP_EOL;
-        }
-
-        echo PHP_EOL;
-    }
-
-    if ($totalMembers < 100) {
-        echo '结论：扫描到的声明过少，token 解析可能失效' . PHP_EOL;
-
-        return 1;
-    }
-
-    if ($shallowMembers === [] && $thinMethods === []) {
-        echo '结论：全部达标' . PHP_EOL;
-
-        return 0;
-    }
-
-    echo '结论：存在未达标项' . PHP_EOL;
-
-    return 1;
+	$root = dirname(__DIR__);
+	
+	$shallowMembers = [];
+	$thinMethods    = [];
+	$totalMembers   = 0;
+	$totalMethods   = 0;
+	$totalFiles     = 0;
+	
+	foreach (['src', 'tests', 'config', 'tools'] as $directory) {
+		$methodExempt = in_array($directory, METHOD_EXEMPT_DIRECTORIES, true);
+		
+		foreach (collect_php_files($root . '/' . $directory) as $file) {
+			$totalFiles++;
+			
+			foreach (scan_file($file, $root, $methodExempt) as $problem) {
+				if ($problem['kind'] === 'member') {
+					$shallowMembers[] = $problem;
+				} else {
+					$thinMethods[] = $problem;
+				}
+			}
+		}
+	}
+	
+	// 统计总量用于确认解析逻辑未失效：扫不到成员说明 token 解析出了问题，
+	// 那种情况下「0 个未达标」是假通过。
+	foreach (['src', 'tests', 'config', 'tools'] as $directory) {
+		foreach (collect_php_files($root . '/' . $directory) as $file) {
+			$tokens = token_get_all((string)file_get_contents($file));
+			
+			foreach ($tokens as $index => $token) {
+				if (!is_array($token)) {
+					continue;
+				}
+				
+				if ($token[0] === T_FUNCTION) {
+					$totalMethods++;
+				}
+				
+				if (in_array($token[0], [T_PUBLIC, T_PROTECTED, T_PRIVATE, T_CONST], true)) {
+					$totalMembers++;
+				}
+			}
+		}
+	}
+	
+	if (!$listOnly) {
+		echo '===== 中文注释深度审查（标准 v0.0.3 第 5.1 节）=====' . PHP_EOL . PHP_EOL;
+		echo '扫描文件数                         ' . $totalFiles . PHP_EOL;
+		echo '成员/方法声明 token 数             ' . $totalMembers . ' / ' . $totalMethods . PHP_EOL;
+		echo PHP_EOL;
+		echo '成员说明过浅（<' . MIN_MEMBER_CHARS . ' 字）        ' . count($shallowMembers) . PHP_EOL;
+		echo '方法缺三段说明                     ' . count($thinMethods) . PHP_EOL;
+		echo PHP_EOL;
+	}
+	
+	foreach ([['成员说明过浅', $shallowMembers], ['方法缺三段说明', $thinMethods]] as list($title, $items)) {
+		if ($items === []) {
+			continue;
+		}
+		
+		echo '--- ' . $title . '（' . count($items) . ' 项）---' . PHP_EOL;
+		
+		foreach ($items as $item) {
+			echo '    - ' . $item['label'] . '  ' . $item['detail'] . PHP_EOL;
+		}
+		
+		echo PHP_EOL;
+	}
+	
+	if ($totalMembers < 100) {
+		echo '结论：扫描到的声明过少，token 解析可能失效' . PHP_EOL;
+		
+		return 1;
+	}
+	
+	if ($shallowMembers === [] && $thinMethods === []) {
+		echo '结论：全部达标' . PHP_EOL;
+		
+		return 0;
+	}
+	
+	echo '结论：存在未达标项' . PHP_EOL;
+	
+	return 1;
 }
 
 exit(run(in_array('--list', $argv, true)));

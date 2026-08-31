@@ -39,21 +39,21 @@ $results = [];
  */
 function runCheck(string $label, string $command, string $workingDirectory = '')
 {
-    $prefix = '';
-    if ($workingDirectory !== '') {
-    	// Windows 与 POSIX 都支持 cd ... && ...，此处只用于本地开发脚本。
-    	$prefix = 'cd ' . escapeshellarg($workingDirectory) . ' && ';
-    }
-    
-    $output   = [];
-    $exitCode = 0;
-    exec($prefix . $command . ' 2>&1', $output, $exitCode);
-    
-    return [
-    	'label'  => $label,
-    	'status' => $exitCode === 0 ? 'PASS' : 'FAIL',
-    	'output' => implode(PHP_EOL, $output),
-    ];
+	$prefix = '';
+	if ($workingDirectory !== '') {
+		// Windows 与 POSIX 都支持 cd ... && ...，此处只用于本地开发脚本。
+		$prefix = 'cd ' . escapeshellarg($workingDirectory) . ' && ';
+	}
+	
+	$output   = [];
+	$exitCode = 0;
+	exec($prefix . $command . ' 2>&1', $output, $exitCode);
+	
+	return [
+		'label'  => $label,
+		'status' => $exitCode === 0 ? 'PASS' : 'FAIL',
+		'output' => implode(PHP_EOL, $output),
+	];
 }
 
 /**
@@ -64,11 +64,11 @@ function runCheck(string $label, string $command, string $workingDirectory = '')
  */
 function isAvailable(string $probe)
 {
-    $output   = [];
-    $exitCode = 0;
-    exec($probe . ' 2>&1', $output, $exitCode);
-    
-    return $exitCode === 0;
+	$output   = [];
+	$exitCode = 0;
+	exec($probe . ' 2>&1', $output, $exitCode);
+	
+	return $exitCode === 0;
 }
 
 echo '===== Protocol v1 跨语言一致性 =====' . PHP_EOL . PHP_EOL;
@@ -78,26 +78,26 @@ $results[] = runCheck('冻结向量漂移检查', escapeshellarg(PHP_BINARY) . '
 
 // 2. PHP 参考实现消费向量。
 $results[] = runCheck(
-    'PHP 向量测试',
-    escapeshellarg(PHP_BINARY) . ' vendor/bin/phpunit --no-coverage --colors=never --filter ProtocolVectorTest'
+	'PHP 向量测试',
+	escapeshellarg(PHP_BINARY) . ' vendor/bin/phpunit --no-coverage --colors=never --filter ProtocolVectorTest'
 );
 
 // 3. Python 独立实现。
 if (isAvailable('python --version')) {
-    $results[] = runCheck('Python 一致性', 'python protocol/conformance/python/conformance_test.py');
+	$results[] = runCheck('Python 一致性', 'python protocol/conformance/python/conformance_test.py');
 } elseif (isAvailable('python3 --version')) {
-    $results[] = runCheck('Python 一致性', 'python3 protocol/conformance/python/conformance_test.py');
+	$results[] = runCheck('Python 一致性', 'python3 protocol/conformance/python/conformance_test.py');
 } else {
-    $results[] = ['label' => 'Python 一致性', 'status' => 'SKIP', 'output' => '未检测到 python 运行时'];
+	$results[] = ['label' => 'Python 一致性', 'status' => 'SKIP', 'output' => '未检测到 python 运行时'];
 }
 
 // 4. Go 独立实现。
 if (isAvailable('go version')) {
-    $results[] = runCheck('Go 格式检查', 'gofmt -l . && exit 0', 'protocol/conformance/go');
-    $results[] = runCheck('Go 静态检查', 'go vet ./...', 'protocol/conformance/go');
-    $results[] = runCheck('Go 一致性', 'go run .', 'protocol/conformance/go');
+	$results[] = runCheck('Go 格式检查', 'gofmt -l . && exit 0', 'protocol/conformance/go');
+	$results[] = runCheck('Go 静态检查', 'go vet ./...', 'protocol/conformance/go');
+	$results[] = runCheck('Go 一致性', 'go run .', 'protocol/conformance/go');
 } else {
-    $results[] = ['label' => 'Go 一致性', 'status' => 'SKIP', 'output' => '未检测到 go 运行时'];
+	$results[] = ['label' => 'Go 一致性', 'status' => 'SKIP', 'output' => '未检测到 go 运行时'];
 }
 
 // ---------- 汇总 ----------
@@ -105,31 +105,31 @@ $failed  = 0;
 $skipped = 0;
 
 foreach ($results as $result) {
-    printf('[%s] %s%s', $result['status'], $result['label'], PHP_EOL);
-    
-    if ($result['status'] === 'FAIL') {
-    	$failed++;
-    	foreach (explode(PHP_EOL, $result['output']) as $line) {
-    		echo '       ' . $line . PHP_EOL;
-    	}
-    }
-    
-    if ($result['status'] === 'SKIP') {
-    	$skipped++;
-    	echo '       ' . $result['output'] . PHP_EOL;
-    }
+	printf('[%s] %s%s', $result['status'], $result['label'], PHP_EOL);
+	
+	if ($result['status'] === 'FAIL') {
+		$failed++;
+		foreach (explode(PHP_EOL, $result['output']) as $line) {
+			echo '       ' . $line . PHP_EOL;
+		}
+	}
+	
+	if ($result['status'] === 'SKIP') {
+		$skipped++;
+		echo '       ' . $result['output'] . PHP_EOL;
+	}
 }
 
 echo PHP_EOL;
 
 if ($failed > 0) {
-    printf('结论：%d 项失败 —— 协议存在歧义或某语言实现有误%s', $failed, PHP_EOL);
-    exit(1);
+	printf('结论：%d 项失败 —— 协议存在歧义或某语言实现有误%s', $failed, PHP_EOL);
+	exit(1);
 }
 
 if ($skipped > 0) {
-    printf('结论：已执行项全部通过，但有 %d 项因缺少运行时被跳过%s', $skipped, PHP_EOL);
-    exit(0);
+	printf('结论：已执行项全部通过，但有 %d 项因缺少运行时被跳过%s', $skipped, PHP_EOL);
+	exit(0);
 }
 
 echo '结论：PHP / Python / Go 三种实现与冻结向量逐字节一致' . PHP_EOL;
